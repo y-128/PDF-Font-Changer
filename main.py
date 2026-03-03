@@ -19,25 +19,13 @@ import fitz
 from pdf_processor import scan_fonts, change_fonts
 from font_scanner import get_all_fonts, BASE_14_FONTS
 
+# バージョン情報（セマンティック バージョニング）
+__version__ = "1.0.0"
+
 
 def get_build_version():
-    """ビルドバージョンを取得（ファイルの最終更新日時）"""
-    try:
-        # 実行ファイルまたはスクリプトのパスを取得
-        if getattr(sys, 'frozen', False):
-            # PyInstallerでビルドされた実行ファイルの場合
-            file_path = sys.executable
-        else:
-            # 通常のPythonスクリプトの場合
-            file_path = __file__
-        
-        # ファイルの最終更新日時を取得
-        mtime = os.path.getmtime(file_path)
-        build_date = datetime.fromtimestamp(mtime)
-        # フォーマット: YY.M.D (例: 26.3.3)
-        return f"{build_date.year % 100}.{build_date.month}.{build_date.day}"
-    except Exception:
-        return "26.3.3"
+    """ビルドバージョンを取得"""
+    return __version__
 
 
 class PDFFontChangerApp:

@@ -7,9 +7,10 @@ __pycache__/
 *.egg-info/
 *.pyc
 *.pyo
+
+# PyInstaller build outputs (but keep build/ config folder)
 dist/
 build/
-build_windows/
 
 # Virtual Environment
 .venv/
@@ -27,13 +28,13 @@ env/
 .DS_Store
 Thumbs.db
 
-# Build Artifacts
-*.spec
+# Build Artifacts (but keep .spec files in build/ folders)
 *.app/
 *.exe
-*.zip
 
 # Cache and temp files
 *.cache
 .pytest_cache/
 .coverage
+
+Release/

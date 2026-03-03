@@ -216,7 +216,24 @@ pip install -r requirements.txt
 
 ## ライセンス
 
-MIT License - 詳細は [LICENSE](LICENSE) を参照してください。
+このプロジェクトは MIT License でライセンスされています。詳細は [LICENSE](LICENSE) を参照してください。
+
+### 依存ライブラリのライセンス
+
+本ソフトウェアは以下のサードパーティライブラリを使用しています：
+
+#### PyMuPDF (1.24.11)
+- **ライセンス**: GNU Affero General Public License v3.0 (AGPL-3.0)
+- **著作権**: Copyright (C) 2015-2024 Artifex Software, Inc.
+- **リンク**: https://github.com/pymupdf/PyMuPDF
+- **重要**: AGPL-3.0 はコピーレフトライセンスです。本ソフトウェアを配布する場合、AGPL-3.0 の要件に従ってソースコードを公開する必要があります。商用/クローズドソース利用には [Artifex社の商用ライセンス](https://artifex.com/licensing/) が必要です。
+
+#### Pillow (≥12.0.0)
+- **ライセンス**: Historical Permission Notice and Disclaimer (HPND)
+- **著作権**: Copyright (c) 1997-2024 by Secret Labs AB and contributors
+- **リンク**: https://python-pillow.org/
+
+完全なライセンステキストは [LICENSE](LICENSE) ファイルに含まれています。
 
 ## 関連リンク
 

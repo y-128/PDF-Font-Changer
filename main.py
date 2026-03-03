@@ -9,6 +9,8 @@ import io
 import sys
 import threading
 import queue
+import time
+from datetime import datetime
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
@@ -16,6 +18,26 @@ import fitz
 
 from pdf_processor import scan_fonts, change_fonts
 from font_scanner import get_all_fonts, BASE_14_FONTS
+
+
+def get_build_version():
+    """ビルドバージョンを取得（ファイルの最終更新日時）"""
+    try:
+        # 実行ファイルまたはスクリプトのパスを取得
+        if getattr(sys, 'frozen', False):
+            # PyInstallerでビルドされた実行ファイルの場合
+            file_path = sys.executable
+        else:
+            # 通常のPythonスクリプトの場合
+            file_path = __file__
+        
+        # ファイルの最終更新日時を取得
+        mtime = os.path.getmtime(file_path)
+        build_date = datetime.fromtimestamp(mtime)
+        # フォーマット: YY.M.D (例: 26.3.3)
+        return f"{build_date.year % 100}.{build_date.month}.{build_date.day}"
+    except Exception:
+        return "26.3.3"
 
 
 class PDFFontChangerApp:
@@ -103,6 +125,15 @@ class PDFFontChangerApp:
     #  UI構築
     # ─────────────────────────────────
     def _build_ui(self):
+        # メニューバー
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # ヘルプメニュー
+        help_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="ヘルプ", menu=help_menu)
+        help_menu.add_command(label="バージョン情報", command=self._show_about)
+        
         # メインコンテナ
         main = ttk.Frame(self.root, padding=10)
         main.pack(fill=tk.BOTH, expand=True)
@@ -1128,6 +1159,83 @@ class PDFFontChangerApp:
                 )
 
         self.root.after(100, self._check_progress)
+
+    def _show_about(self):
+        """バージョン情報ダイアログを表示"""
+        version = get_build_version()
+        about_text = f"""PDF Font Changer
+Version {version}
+
+PDFファイルのフォントを一括変更するデスクトップアプリケーション
+
+Copyright (c) 2026 y-128
+Licensed under MIT License
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+使用ライブラリ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PyMuPDF 1.24.11
+  Copyright (C) 2015-2024 Artifex Software, Inc.
+  Licensed under AGPL-3.0
+  https://github.com/pymupdf/PyMuPDF
+
+Pillow ≥12.0.0
+  Copyright (c) 1997-2024 Secret Labs AB
+  Licensed under HPND
+  https://python-pillow.org/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚠️ 重要なライセンス情報:
+本ソフトウェアは PyMuPDF (AGPL-3.0) を使用しています。
+AGPL-3.0 はコピーレフトライセンスのため、本ソフトウェアを
+再配布する場合はソースコードの公開が必要です。
+
+詳細は LICENSE ファイルをご確認ください。
+
+GitHub: https://github.com/y-128/PDF-Font-Changer"""
+
+        # トップレベルウィンドウを作成
+        about_window = tk.Toplevel(self.root)
+        about_window.title("バージョン情報")
+        about_window.geometry("600x500")
+        about_window.resizable(False, False)
+        
+        # テキストウィジェット
+        text_frame = ttk.Frame(about_window, padding=20)
+        text_frame.pack(fill=tk.BOTH, expand=True)
+        
+        text_widget = tk.Text(
+            text_frame,
+            wrap=tk.WORD,
+            font=("", 10),
+            relief=tk.FLAT,
+            bg=self.root.cget('bg')
+        )
+        text_widget.insert("1.0", about_text)
+        text_widget.config(state=tk.DISABLED)
+        text_widget.pack(fill=tk.BOTH, expand=True)
+        
+        # 閉じるボタン
+        button_frame = ttk.Frame(about_window, padding=(0, 10, 20, 20))
+        button_frame.pack(fill=tk.X)
+        ttk.Button(
+            button_frame,
+            text="閉じる",
+            command=about_window.destroy,
+            width=10
+        ).pack(side=tk.RIGHT)
+        
+        # ウィンドウを中央に配置
+        about_window.transient(self.root)
+        about_window.grab_set()
+        
+        # 中央配置
+        about_window.update_idletasks()
+        x = (about_window.winfo_screenwidth() // 2) - (600 // 2)
+        y = (about_window.winfo_screenheight() // 2) - (500 // 2)
+        about_window.geometry(f"600x500+{x}+{y}")
 
 
 def main():

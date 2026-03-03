@@ -1,6 +1,7 @@
 # PDF Font Changer
 
 PDFファイルのフォントおよびフォントサイズを一括変更するデスクトップアプリケーションです。**Windows / Linux / macOS** で完全オフライン動作します。
+Windows(x64, Windows 11)、Mac(Apple M1, macOS Tahoe)環境で動作確認を行いました。
 
 ## 主な機能
 

@@ -1,0 +1,164 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:  # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Windows executable
+        run: |
+          cd Release/windows
+          pyinstaller build_windows.spec
+
+      - name: Create ZIP archive
+        run: |
+          cd Release/windows/dist
+          Compress-Archive -Path "PDF Font Changer.exe" -DestinationPath "../../../PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Linux executable
+        run: |
+          cd Release/linux
+          pyinstaller build_linux.spec
+
+      - name: Create ZIP archive
+        run: |
+          cd Release/linux/dist
+          zip -r ../../../PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip "PDF Font Changer"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          brew install python-tk@3.12
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build macOS app
+        run: |
+          cd Release/macos
+          pyinstaller build_macos.spec
+
+      - name: Create ZIP archive
+        run: |
+          cd Release/macos/dist
+          zip -r ../../../PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip "PDF Font Changer.app"
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-build-packages:
+    runs-on: ubuntu-latest
+    needs: [build-windows, build-linux, build-macos]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Create build packages
+        run: |
+          # Windows Build Package
+          mkdir -p temp-windows
+          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-windows/
+          cp -r assets temp-windows/
+          cp Release/windows/build_windows.spec Release/windows/Readme_win.txt temp-windows/
+          zip -r PDF-Font-Changer-v${{ github.ref_name }}-Windows-Build.zip temp-windows
+          rm -rf temp-windows
+
+          # Linux Build Package
+          mkdir -p temp-linux
+          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-linux/
+          cp -r assets temp-linux/
+          cp Release/linux/build_linux.spec Release/linux/Readme_Linux.txt temp-linux/
+          zip -r PDF-Font-Changer-v${{ github.ref_name }}-Linux-Build.zip temp-linux
+          rm -rf temp-linux
+
+          # macOS Build Package
+          mkdir -p temp-macos
+          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-macos/
+          cp -r assets temp-macos/
+          cp Release/macos/build_macos.spec Release/macos/Readme_Mac.txt temp-macos/
+          zip -r PDF-Font-Changer-v${{ github.ref_name }}-macOS-Build.zip temp-macos
+          rm -rf temp-macos
+
+      - name: Upload Build Packages
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            PDF-Font-Changer-v${{ github.ref_name }}-Windows-Build.zip
+            PDF-Font-Changer-v${{ github.ref_name }}-Linux-Build.zip
+            PDF-Font-Changer-v${{ github.ref_name }}-macOS-Build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

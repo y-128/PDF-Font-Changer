@@ -32,9 +32,11 @@ Thumbs.db
 *.app/
 *.exe
 
+# Release generated outputs only (keep release configs/docs tracked)
+Release/*/dist/
+Release/*/build/
+
 # Cache and temp files
 *.cache
 .pytest_cache/
 .coverage
-
-Release/

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+*.pyc
+*.pyo
+dist/
+build/
+build_windows/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build Artifacts
+*.spec
+*.app/
+*.exe
+*.zip
+
+# Cache and temp files
+*.cache
+.pytest_cache/
+.coverage

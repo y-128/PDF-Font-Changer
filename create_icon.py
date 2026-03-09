@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-アイコンファイルを作成するスクリプト
-icon.png から macOS用の.icnsファイルを生成します
+ アイコンファイルを作成するスクリプト
+icon.png から macOS用の.icnsファイルとWindows用の.icoファイルを生成します
 """
 
 import os
 import subprocess
 from pathlib import Path
+from PIL import Image
 
 def create_icns_from_png(png_path, output_icns_path):
     """PNGファイルから.icnsファイルを生成"""
@@ -60,23 +61,54 @@ def create_icns_from_png(png_path, output_icns_path):
     
     return True
 
+def create_ico_from_png(png_path, output_ico_path):
+    """PNGファイルから.icoファイルを生成"""
+    try:
+        from PIL import Image
+    except ImportError:
+        print("エラー: Pillowライブラリが見つかりません")
+        print("pip install Pillow を実行してください")
+        return False
+
+    if not os.path.exists(png_path):
+        print(f"エラー: {png_path} が見つかりません")
+        print("添付された画像を 'assets/icon.png' として保存してください")
+        return False
+        
+    print(f"アイコンを生成中: {png_path} -> {output_ico_path}")
+    
+    try:
+        img = Image.open(png_path)
+        img.save(output_ico_path, format='ICO', sizes=[(16,16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+        print(f"✓ 完成: {output_ico_path}")
+        return True
+    except Exception as e:
+        print(f"❌ .icoファイルの生成に失敗しました: {e}")
+        return False
+
 if __name__ == "__main__":
     png_path = "assets/icon.png"
     icns_path = "assets/icon.icns"
+    ico_path = "assets/icon.ico"
     
     print("=" * 60)
     print("PDF Font Changer with OCR - アイコン生成ツール")
     print("=" * 60)
     print()
     
+    print("--- macOS (.icns) ---")
     if create_icns_from_png(png_path, icns_path):
-        print("\n✅ アイコンファイルの生成が完了しました")
-        print(f"   {icns_path}")
-        print("\n次のステップ:")
-        print("   1. PyInstallerの.specファイルにアイコンを設定")
-        print("   2. アプリを再ビルド")
+        print(f"✅ {icns_path} の生成が完了しました")
     else:
-        print("\n❌ アイコンファイルの生成に失敗しました")
-        print("\n手順:")
-        print("   1. 添付された画像を 'assets/icon.png' として保存")
-        print("   2. このスクリプトを再実行")
+        print(f"❌ {icns_path} の生成に失敗しました")
+    
+    print("\n--- Windows (.ico) ---")
+    if create_ico_from_png(png_path, ico_path):
+        print(f"✅ {ico_path} の生成が完了しました")
+    else:
+        print(f"❌ {ico_path} の生成に失敗しました")
+
+    print("\n" + "="*20 + " すべての処理が完了 " + "="*20)
+    print("\n次のステップ:")
+    print("   1. PyInstallerの.specファイルにアイコンを設定")
+    print("   2. アプリを再ビルド")

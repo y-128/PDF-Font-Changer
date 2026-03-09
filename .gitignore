@@ -40,3 +40,5 @@ Release/*/build/
 *.cache
 .pytest_cache/
 .coverage
+
+vertical_spacing_adjustment.md

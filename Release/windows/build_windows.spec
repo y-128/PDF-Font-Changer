@@ -19,7 +19,7 @@ source_files = [
 
 # アセットファイル（assetsフォルダ）
 assets_folder = os.path.join(project_root, 'assets')
-icon_file = os.path.join(assets_folder, 'icon.png')
+icon_file = os.path.join(assets_folder, 'icon.ico')
 
 a = Analysis(
     source_files,

@@ -21,6 +21,15 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 # プロジェクトルートディレクトリ（このファイルから2階層上）
 project_root = os.path.abspath(os.path.join(SPECPATH, '..'))
 
+# main.py からバージョン情報を読み込む
+main_py_path = os.path.join(project_root, 'main.py')
+version = '0.0.0'
+with open(main_py_path, 'r', encoding='utf-8') as f:
+    for line in f:
+        if line.startswith('__version__'):
+            version = line.split('=')[1].strip().replace('"', '')
+            break
+
 # 必要なソースファイル
 source_files = [
     os.path.join(project_root, 'main.py'),
@@ -129,8 +138,8 @@ app = BUNDLE(
     info_plist={
         'CFBundleName': 'PDF Font Changer',
         'CFBundleDisplayName': 'PDF Font Changer',
-        'CFBundleVersion': '1.0.0',
-        'CFBundleShortVersionString': '1.0.0',
+        'CFBundleVersion': version,
+        'CFBundleShortVersionString': version,
         'NSHighResolutionCapable': 'True',
         'LSMinimumSystemVersion': '10.13.0',
         'NSHumanReadableCopyright': 'Copyright © 2026 y-128',

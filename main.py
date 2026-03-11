@@ -21,7 +21,7 @@ from font_scanner import get_all_fonts, BASE_14_FONTS
 import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 
 def get_build_version():
@@ -38,8 +38,34 @@ class PDFFontChangerApp:
     def __init__(self, root):
         self.root = root
         self.root.title(self.APP_TITLE)
-        self.root.minsize(*self.WINDOW_MIN_SIZE)
-        self.root.geometry("800x600")
+
+        # 解像度に応じたスケーリング係数を取得
+        self.scale_factor = 1.0
+        try:
+            if sys.platform == "win32":
+                from ctypes import windll
+                windll.shcore.SetProcessDpiAwareness(1)
+            # tk scaling が使えるなら使う
+            self.scale_factor = self.root.tk.call('tk', 'scaling')
+        except (ImportError, tk.TclError):
+            try:
+                # 代替手段 (ウィンドウ表示後でないと正確でない場合がある)
+                self.scale_factor = self.root.winfo_fpixels('1i') / 72.0
+            except tk.TclError:
+                pass # これも失敗したら 1.0 のまま
+        
+        # macOSでのスケールが大きすぎる場合があるので調整
+        if sys.platform == "darwin" and self.scale_factor > 1.5:
+            self.scale_factor /= 1.5
+
+        # スケーリングを適用したサイズ計算
+        min_width = int(self.WINDOW_MIN_SIZE[0] * self.scale_factor)
+        min_height = int(self.WINDOW_MIN_SIZE[1] * self.scale_factor)
+        default_width = int(800 * self.scale_factor)
+        default_height = int(600 * self.scale_factor)
+        
+        self.root.minsize(min_width, min_height)
+        self.root.geometry(f"{default_width}x{default_height}")
 
         # 状態変数
         self.pdf_path = None
@@ -92,14 +118,24 @@ class PDFFontChangerApp:
             style.theme_use("clam")
         except tk.TclError:
             pass
+        
+        # スケーリングされた値を計算するヘルパー
+        def scale(value):
+            return int(value * self.scale_factor)
 
+        # フォントサイズはスケーリングせず、Tkinterの自動スケーリングに任せる
+        # パディングや高さなど、ジオメトリ関連は手動でスケーリング
         style.configure("Title.TLabel", font=("", 14, "bold"))
         style.configure("Status.TLabel", font=("", 10))
-        style.configure("Action.TButton", font=("", 11), padding=(12, 6))
+        style.configure(
+            "Action.TButton",
+            font=("", 11),
+            padding=(scale(12), scale(6))
+        )
         style.configure(
             "Treeview",
             font=("", 11),
-            rowheight=26,
+            rowheight=scale(26),
         )
         style.configure("Treeview.Heading", font=("", 11, "bold"))
         

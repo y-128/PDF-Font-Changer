@@ -38,7 +38,7 @@ jobs:
           Compress-Archive -Path "PDF Font Changer.exe" -DestinationPath "../../PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip"
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip
         env:
@@ -74,7 +74,7 @@ jobs:
           zip -r ../../PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip "PDF Font Changer"
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip
         env:
@@ -109,7 +109,7 @@ jobs:
           zip -r ../../PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip "PDF Font Changer.app"
 
       - name: Upload Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip
         env:
@@ -131,7 +131,7 @@ jobs:
           zip -r PDF-Font-Changer-v${{ github.ref_name }}-Source.zip source_files
 
       - name: Upload Source Code Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: PDF-Font-Changer-v${{ github.ref_name }}-Source.zip
         env:

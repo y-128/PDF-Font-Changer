@@ -4,7 +4,7 @@ PDF Font Changer - Windows版 ビルド手順
 
 【必要な環境】
 - Windows 10/11
-- Python 3.9 以上（3.12 推奨）
+- Python 3.10 以上（3.12 推奨）
 - Git for Windows（リポジトリクローン用）
 
 ================================================================================
@@ -47,21 +47,39 @@ PDF Font Changer - Windows版 ビルド手順
    pip install -r requirements.txt
    pip install pyinstaller
 
+※ ndlocr-lite（OCR機能）の依存パッケージ（onnxruntime、opencv等）も
+   自動的にインストールされます。インストール完了まで数分かかる場合があります。
+
+================================================================================
+【OCR機能（ndlocr-lite）について】
+================================================================================
+
+ndlocr-lite を含むビルドでは以下の点に注意してください:
+
+- OCR モデルファイル（合計約 150MB）がバンドルされるため、
+  最終 .exe は 300MB 以上になります
+- プロジェクトフォルダのパスに日本語（全角文字）が含まれていると
+  ndlocr-lite が動作しません
+  NG例: C:\Users\田中\Projects\PDF-Font-Changer\
+  OK例: C:\Users\tanaka\Projects\PDF-Font-Changer\
+- OCR機能が不要な場合は requirements.txt から ndlocr-lite 行を削除して
+  ビルドするとファイルサイズを大幅に削減できます
+
 ================================================================================
 【4】ビルドの実行
 ================================================================================
 
-1. build/windows フォルダに移動：
+1. Release フォルダに移動：
 
-   cd build\windows
+   cd Release
 
 2. PyInstaller でビルド実行：
 
-   pyinstaller build_windows.spec
+   pyinstaller win_build.spec
 
 3. ビルドが完了すると、以下に実行ファイルが生成されます：
 
-   build\windows\dist\PDF-Font-Changer.exe
+   Release\dist\PDF Font Changer.exe
 
 ================================================================================
 【5】動作確認
@@ -106,7 +124,7 @@ PDF Font Changer - Windows版 ビルド手順
 ◆ 実行ファイルが起動しない場合：
 
    1. コンソール付きでビルド（デバッグ用）：
-      build_windows.spec の console=False を console=True に変更
+      win_build.spec の console=False を console=True に変更
       再ビルドしてエラーメッセージを確認
 
    2. 依存DLLの確認：
@@ -120,13 +138,13 @@ PDF Font Changer - Windows版 ビルド手順
 【カスタマイズ】
 ================================================================================
 
-build_windows.spec を編集することで、以下のカスタマイズが可能：
+win_build.spec を編集することで、以下のカスタマイズが可能：
 
 - exe ファイル名の変更（name='...' の部分）
 - アイコンの変更（icon=... の部分）
 - コンソール表示/非表示（console=True/False）
 - UPX圧縮の有効化/無効化（upx=True/False）
 
-編集後は再度 pyinstaller build_windows.spec を実行してください。
+編集後は再度 pyinstaller win_build.spec を実行してください。
 
 ================================================================================

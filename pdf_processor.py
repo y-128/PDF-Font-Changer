@@ -68,7 +68,8 @@ def scan_fonts(pdf_path):
 
 
 def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
-                 progress_callback=None, region_bbox=None, region_bboxes=None):
+                 progress_callback=None, region_bbox=None, region_bboxes=None,
+                 ocr_results=None):
     """
     PDFのフォント・サイズを変更して保存する。
 
@@ -84,10 +85,17 @@ def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
         region_bboxes: 変換対象の矩形領域一覧
                   [{"page": int, "bbox": (x0, y0, x1, y1)}, ...]
                   Noneの場合は全ページ対象
+        ocr_results: OCR認識結果 {page_idx: [{"text": str, "bbox": (x0,y0,x1,y1)}, ...]}
+                     スキャンPDF対応時に使用。"OCR検出"フォントの置換規則と組み合わせる。
 
     Returns:
         dict: 処理結果 {"pages": int, "changed_spans": int}
     """
+    import os as _os
+    if not _os.path.isfile(pdf_path):
+        raise FileNotFoundError(f"PDFファイルが見つかりません: {pdf_path}")
+    if not _os.access(pdf_path, _os.R_OK):
+        raise PermissionError(f"PDFファイルを読み取れません: {pdf_path}")
     if system_font_paths is None:
         system_font_paths = {}
 
@@ -96,7 +104,10 @@ def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
     for r in replacements:
         key = (r["orig_font"], r["orig_size"])
         rule_map[key] = (r["new_font"], r["new_size"])
-    
+
+    # OCR検出ルールをサイズ別に抽出（"OCR検出" フォントの全ルール）
+    ocr_rules = {size: val for (font, size), val in rule_map.items() if font == "OCR検出"}
+
     print(f"[DEBUG] Font replacement rules: {len(rule_map)}")
     for key, val in list(rule_map.items())[:10]:
         print(f"[DEBUG]   {key[0]:<30} {key[1]:>6} -> {val[0]:<30} {val[1]:>6}")
@@ -137,7 +148,8 @@ def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
             page_regions = global_region_rects + page_region_rects.get(page_idx, [])
 
             # 複数範囲指定時、対象ページに領域がなければスキップ
-            if region_bboxes is not None and len(region_bboxes) > 0 and not page_regions:
+            page_has_ocr = bool(ocr_rules) and ocr_results and page_idx in ocr_results
+            if region_bboxes is not None and len(region_bboxes) > 0 and not page_regions and not page_has_ocr:
                 if progress_callback:
                     progress_callback(page_idx + 1, total_pages)
                 continue
@@ -174,7 +186,32 @@ def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
                                 "color": _parse_color(span.get("color", 0)),
                                 "new_font": new_font,
                                 "new_size": new_size,
+                                "fill_bg": False,  # 通常テキストは背景塗りつぶしなし
                             })
+
+            # OCR検出テキストをスパンリストに追加
+            if page_has_ocr:
+                for ocr_line in ocr_results[page_idx]:
+                    text = ocr_line.get("text", "").strip()
+                    if not text:
+                        continue
+                    line_size = ocr_line.get("size_pt", 0.0)
+                    # サイズ一致するルールを探す（完全一致 → フォールバックなし）
+                    ocr_line_rule = ocr_rules.get(line_size)
+                    if ocr_line_rule is None:
+                        continue
+                    new_font_ocr, new_size_ocr = ocr_line_rule
+                    bbox = fitz.Rect(ocr_line["bbox"])
+                    origin = fitz.Point(bbox.x0, bbox.y1)
+                    spans_to_replace.append({
+                        "bbox": bbox,
+                        "text": text,
+                        "origin": origin,
+                        "color": (0.0, 0.0, 0.0),
+                        "new_font": new_font_ocr,
+                        "new_size": new_size_ocr,
+                        "fill_bg": True,
+                    })
 
             if not spans_to_replace:
                 if progress_callback:
@@ -186,10 +223,17 @@ def change_fonts(pdf_path, output_path, replacements, system_font_paths=None,
             # 2. Redactionを追加（元テキストを削除するため）
             for sp in spans_to_replace:
                 annot = page.add_redact_annot(sp["bbox"])
-                annot.set_colors(stroke=None, fill=None)  # 背景色と枠線をなしに設定
+                if sp.get("fill_bg"):
+                    annot.set_colors(stroke=None, fill=(1, 1, 1))  # 白で塗りつぶして下の画像テキストを隠す
+                else:
+                    annot.set_colors(stroke=None, fill=None)  # 背景色と枠線をなしに設定
 
-            # 3. Redactionを適用（元テキストを消去、画像や図形は保持）
-            page.apply_redactions(images=0, graphics=0)
+            # 3. Redactionを適用（元テキストを消去、通常スパンは画像や図形を保持）
+            if any(sp.get("fill_bg") for sp in spans_to_replace):
+                # OCRスパンがある場合は画像も redact 対象に含める（スキャン画像の文字を消去）
+                page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS, graphics=0)
+            else:
+                page.apply_redactions(images=0, graphics=0)
 
             # 4. 新しいテキストを挿入
             inserted_font_aliases = set()
@@ -306,11 +350,15 @@ def _pick_unicode_fallback_font(system_font_paths):
     return next(iter(system_font_paths.values()), None)
 
 
-def _make_embedded_font_alias(requested_font, fontfile):
-    """PDF内部で使う埋め込みフォント名（ASCIIのみ）を作る。"""
-    safe_font = "".join(ch for ch in requested_font if ch.isalnum())[:24] or "font"
-    safe_key = str(abs(hash(fontfile)) % 10_000_000)
-    return f"f_{safe_font}_{safe_key}"
+def _make_embedded_font_alias(requested_font, fontfile, _counter={}):
+    """PDF内部で使う埋め込みフォント名（ASCIIのみ）を作る。
+    hash() はプロセス間で値が変わるため、単調カウンターで一意性を保証する。
+    """
+    key = (requested_font, fontfile)
+    if key not in _counter:
+        _counter[key] = len(_counter)
+    safe_font = "".join(ch for ch in requested_font if ch.isalnum())[:20] or "font"
+    return f"f_{safe_font}_{_counter[key]}"
 
 
 def _resolve_font_for_text(requested_font, text, system_font_paths, unicode_fallback_path):

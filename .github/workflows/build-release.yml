@@ -29,13 +29,13 @@ jobs:
 
       - name: Build Windows executable
         run: |
-          cd Release/windows
-          pyinstaller build_windows.spec
+          cd Release
+          pyinstaller win_build.spec
 
       - name: Create ZIP archive
         run: |
-          cd Release/windows/dist
-          Compress-Archive -Path "PDF Font Changer.exe" -DestinationPath "../../../PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip"
+          cd Release/dist
+          Compress-Archive -Path "PDF Font Changer.exe" -DestinationPath "../../PDF-Font-Changer-v${{ github.ref_name }}-Windows.zip"
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
@@ -65,13 +65,13 @@ jobs:
 
       - name: Build Linux executable
         run: |
-          cd Release/linux
-          pyinstaller build_linux.spec
+          cd Release
+          pyinstaller linux_build.spec
 
       - name: Create ZIP archive
         run: |
-          cd Release/linux/dist
-          zip -r ../../../PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip "PDF Font Changer"
+          cd Release/dist
+          zip -r ../../PDF-Font-Changer-v${{ github.ref_name }}-Linux.zip "PDF Font Changer"
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
@@ -100,13 +100,13 @@ jobs:
 
       - name: Build macOS app
         run: |
-          cd Release/macos
-          pyinstaller build_macos.spec
+          cd Release
+          pyinstaller mac_build.spec
 
       - name: Create ZIP archive
         run: |
-          cd Release/macos/dist
-          zip -r ../../../PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip "PDF Font Changer.app"
+          cd Release/dist
+          zip -r ../../PDF-Font-Changer-v${{ github.ref_name }}-macOS.zip "PDF Font Changer.app"
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
@@ -131,25 +131,25 @@ jobs:
         run: |
           # Windows Build Package
           mkdir -p temp-windows
-          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-windows/
+          cp main.py pdf_processor.py ocr_processor.py font_scanner.py requirements.txt LICENSE README.md temp-windows/
           cp -r assets temp-windows/
-          cp Release/windows/build_windows.spec Release/windows/Readme_win.txt temp-windows/
+          cp Release/win_build.spec Release/win_Readme.txt temp-windows/
           zip -r PDF-Font-Changer-v${{ github.ref_name }}-Windows-Build.zip temp-windows
           rm -rf temp-windows
 
           # Linux Build Package
           mkdir -p temp-linux
-          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-linux/
+          cp main.py pdf_processor.py ocr_processor.py font_scanner.py requirements.txt LICENSE README.md temp-linux/
           cp -r assets temp-linux/
-          cp Release/linux/build_linux.spec Release/linux/Readme_Linux.txt temp-linux/
+          cp Release/linux_build.spec Release/linux_Readme.txt temp-linux/
           zip -r PDF-Font-Changer-v${{ github.ref_name }}-Linux-Build.zip temp-linux
           rm -rf temp-linux
 
           # macOS Build Package
           mkdir -p temp-macos
-          cp main.py pdf_processor.py font_scanner.py requirements.txt LICENSE README.md temp-macos/
+          cp main.py pdf_processor.py ocr_processor.py font_scanner.py requirements.txt LICENSE README.md temp-macos/
           cp -r assets temp-macos/
-          cp Release/macos/build_macos.spec Release/macos/Readme_Mac.txt temp-macos/
+          cp Release/mac_build.spec Release/mac_Readme.txt temp-macos/
           zip -r PDF-Font-Changer-v${{ github.ref_name }}-macOS-Build.zip temp-macos
           rm -rf temp-macos
 

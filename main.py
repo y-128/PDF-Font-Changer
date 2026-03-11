@@ -18,6 +18,7 @@ import fitz
 
 from pdf_processor import scan_fonts, change_fonts
 from font_scanner import get_all_fonts, BASE_14_FONTS
+import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
 __version__ = "1.0.0"
@@ -47,6 +48,10 @@ class PDFFontChangerApp:
         self.system_font_paths = {}
         self.progress_queue = queue.Queue()
         self.is_processing = False
+
+        # OCR関連
+        self.use_ocr_var = tk.BooleanVar(value=False)
+        self.ocr_results = {}  # {page_idx: [{"text": str, "bbox": (x0,y0,x1,y1)}, ...]}
 
         # PDF プレビュー関連
         self.pdf_doc = None  # PyMuPDF ドキュメント
@@ -134,6 +139,11 @@ class PDFFontChangerApp:
             toolbar, text="📂 PDFを開く", command=self._open_pdf,
             style="Action.TButton"
         ).pack(side=tk.LEFT)
+
+        ttk.Checkbutton(
+            toolbar, text="OCR（スキャンPDF）",
+            variable=self.use_ocr_var,
+        ).pack(side=tk.LEFT, padx=(8, 0))
 
         self.path_label = ttk.Label(
             toolbar, text="ファイルが選択されていません",
@@ -817,46 +827,153 @@ class PDFFontChangerApp:
             messagebox.showerror("エラー", f"PDFが開けません:\n{e}")
             return
 
-        # バックグラウンドでスキャン
+        # バックグラウンドでフォントスキャン開始
+        use_ocr = self.use_ocr_var.get()
+        pdf_path_local = path
+
+        self.is_processing = True
+        self.progress_bar.config(mode="indeterminate")
+        self.progress_bar.start(15)
+        self.status_label.config(text="PDFを解析中...")
+
         def _scan():
             try:
-                # 通常のフォントスキャン
-                fonts = scan_fonts(path)
-                self.root.after(0, lambda: self._on_scan_done(fonts))
+                fonts = scan_fonts(pdf_path_local)
+                self.root.after(0, lambda: self._on_fonts_scanned(fonts, use_ocr, pdf_path_local))
             except Exception as e:
                 error_msg = str(e)
-                self.root.after(
-                    0, lambda msg=error_msg: self._on_scan_error(msg)
-                )
+                self.root.after(0, lambda msg=error_msg: self._on_scan_error(msg))
 
         threading.Thread(target=_scan, daemon=True).start()
 
-    def _on_scan_done(self, fonts):
+    def _on_fonts_scanned(self, fonts, use_ocr, pdf_path):
+        """フォントスキャン完了後の処理（メインスレッドで実行）"""
+        if use_ocr and len(fonts) > 0:
+            answer = messagebox.askyesno(
+                "フォント検出",
+                f"このPDFには {len(fonts)} 種類の埋め込みフォントが検出されました。\n"
+                "テキストデータを持つPDFの可能性があります。\n\n"
+                "このままOCRで続行しますか？\n"
+                "（「いいえ」を選ぶとOCRをスキップして通常モードで開きます）",
+                parent=self.root
+            )
+            if not answer:
+                self._on_scan_done(fonts)
+                return
+
+        if use_ocr:
+            self._start_ocr(fonts, pdf_path)
+        else:
+            self._on_scan_done(fonts)
+
+    def _start_ocr(self, fonts, pdf_path):
+        """OCR処理をバックグラウンドで実行"""
+        def _run_ocr():
+            ocr_results = {}
+            try:
+                doc_ocr = fitz.open(pdf_path)
+                try:
+                    page_count = len(doc_ocr)
+                    print(f"[OCR] OCRを実行中... 全{page_count}ページ")
+                    for page_idx in range(page_count):
+                        self.root.after(
+                            0,
+                            lambda i=page_idx, n=page_count: self.status_label.config(
+                                text=f"OCR処理中... {i + 1}/{n} ページ"
+                            ),
+                        )
+                        try:
+                            page = doc_ocr[page_idx]
+                            ocr_zoom = 2.0
+                            mat = fitz.Matrix(ocr_zoom, ocr_zoom)
+                            pix = page.get_pixmap(matrix=mat)
+                            pil_img = Image.open(io.BytesIO(pix.tobytes("ppm")))
+                            lines = ocr_processor.run_ocr(pil_img)
+                            pdf_lines = []
+                            for ln in lines:
+                                x0, y0, x1, y1 = ln["bbox"]
+                                bbox_h = y1 - y0
+                                bbox_w = x1 - x0
+                                size_pt = round(min(bbox_h, bbox_w) / ocr_zoom, 1)
+                                pdf_lines.append({
+                                    "text": ln["text"],
+                                    "bbox": (
+                                        x0 / ocr_zoom,
+                                        y0 / ocr_zoom,
+                                        x1 / ocr_zoom,
+                                        y1 / ocr_zoom,
+                                    ),
+                                    "size_pt": size_pt,
+                                })
+                            if pdf_lines:
+                                ocr_results[page_idx] = pdf_lines
+                            print(f"[OCR] ページ {page_idx + 1}/{page_count}: {len(pdf_lines)} 行を検出")
+                        except Exception as e:
+                            import traceback
+                            print(f"[OCR] ページ {page_idx + 1} のOCRに失敗: {e}")
+                            traceback.print_exc()
+                finally:
+                    doc_ocr.close()
+            except Exception as e:
+                import traceback
+                print(f"[OCR] OCR処理でエラー: {e}")
+                traceback.print_exc()
+            self.root.after(0, lambda: self._on_scan_done(fonts, ocr_results))
+
+        threading.Thread(target=_run_ocr, daemon=True).start()
+
+    def _on_scan_done(self, fonts, ocr_results=None):
+        # ステータスバーを停止
+        self.is_processing = False
+        self.progress_bar.config(mode="determinate")
+        self.progress_bar.stop()
+        self.progress_bar["value"] = 0
+
+        self.ocr_results = ocr_results or {}
         is_scanned = len(fonts) == 0
-        self.font_list = fonts
+
+        # OCR結果がある場合、サイズ別に「OCR検出」エントリをフォントリストに追加
+        display_fonts = list(fonts)
+        if self.ocr_results:
+            # size_pt ごとにグループ化
+            size_counts: dict[float, int] = {}
+            for page_lines in self.ocr_results.values():
+                for ln in page_lines:
+                    sp = ln.get("size_pt", 0.0)
+                    size_counts[sp] = size_counts.get(sp, 0) + 1
+            for sp in sorted(size_counts):
+                display_fonts.append({"font": "OCR検出", "size": sp, "count": size_counts[sp]})
+
+        self.font_list = display_fonts
         self.is_scanned_pdf = is_scanned
-        self._populate_tree(fonts)
+        self._populate_tree(display_fonts)
         print(f"[DEBUG] PDF scan completed - Found {len(fonts)} font types:")
         for f in fonts[:10]:
             print(f"[DEBUG]   Font: {f['font']:<30} Size: {f['size']:>6} Count: {f['count']:>4}")
         if len(fonts) > 10:
             print(f"[DEBUG]   ... and {len(fonts) - 10} more")
+        if self.ocr_results:
+            total = sum(len(v) for v in self.ocr_results.values())
+            print(f"[DEBUG]   OCR: {total} 行を認識")
         self.status_label.config(
             text=f"解析完了 — {len(fonts)} 種類のフォント/サイズを検出"
+            + (f"、OCR {sum(len(v) for v in self.ocr_results.values())} 行" if self.ocr_results else "")
         )
-        
-        # スキャンPDFの場合は警告を表示
-        if is_scanned:
+
+        # スキャンPDFかつOCR未使用の場合は案内を表示
+        if is_scanned and not self.ocr_results:
             messagebox.showwarning(
                 "スキャンPDF検出",
                 "このPDFは画像のみで構成されています。\n\n"
-                "フォント変更を適用するには、OCRで認識したテキストを\n"
-                "PDFに埋め込む必要があります。\n\n"
-                "変換を実行すると、認識されたテキストが新しいフォントで\n"
-                "画像上に配置されます。"
+                "ツールバーの「OCR（スキャンPDF）」チェックボックスを\n"
+                "ONにしてから再度PDFを開いてください。"
             )
 
     def _on_scan_error(self, error_msg):
+        self.is_processing = False
+        self.progress_bar.config(mode="determinate")
+        self.progress_bar.stop()
+        self.progress_bar["value"] = 0
         self.status_label.config(text="エラーが発生しました")
         messagebox.showerror("エラー", f"PDF解析に失敗しました:\n{error_msg}")
 
@@ -1070,6 +1187,7 @@ class PDFFontChangerApp:
                         ("progress", cur, total)
                     ),
                     region_bboxes=self.region_bboxes if self.region_bboxes else None,
+                    ocr_results=self.ocr_results if self.ocr_results else None,
                 )
                 print(f"[DEBUG] PDF conversion completed:")
                 print(f"[DEBUG]   Pages processed: {result['pages']}")
@@ -1173,6 +1291,11 @@ Pillow ≥12.0.0
   Licensed under HPND
   https://python-pillow.org/
 
+ndlocr-lite 1.1.2
+  Copyright (C) National Diet Library of Japan
+  Licensed under CC-BY-4.0
+  https://github.com/ndl-lab/ndlocr-lite
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ⚠️ 重要なライセンス情報:
@@ -1180,14 +1303,13 @@ Pillow ≥12.0.0
 AGPL-3.0 はコピーレフトライセンスのため、本ソフトウェアを
 再配布する場合はソースコードの公開が必要です。
 
-詳細は LICENSE ファイルをご確認ください。
-
-GitHub: https://github.com/y-128/PDF-Font-Changer"""
+ソースコード・完全なライセンス情報:
+https://github.com/y-128/PDF-Font-Changer"""
 
         # トップレベルウィンドウを作成
         about_window = tk.Toplevel(self.root)
         about_window.title("バージョン情報")
-        about_window.geometry("600x500")
+        about_window.geometry("600x560")
         about_window.resizable(False, False)
         
         # テキストウィジェット
@@ -1222,7 +1344,7 @@ GitHub: https://github.com/y-128/PDF-Font-Changer"""
         # 中央配置
         about_window.update_idletasks()
         x = (about_window.winfo_screenwidth() // 2) - (600 // 2)
-        y = (about_window.winfo_screenheight() // 2) - (500 // 2)
+        y = (about_window.winfo_screenheight() // 2) - (560 // 2)
         about_window.geometry(f"600x500+{x}+{y}")
 
 

@@ -5,7 +5,7 @@ PDF Font Changer - macOS版 ビルド手順
 【必要な環境】
 - macOS 10.13 (High Sierra) 以上
 - Homebrew（推奨）
-- Python 3.9 以上（3.12 推奨）
+- Python 3.10 以上（3.12 推奨）
 - Xcode Command Line Tools
 
 ================================================================================
@@ -60,6 +60,24 @@ PDF Font Changer - macOS版 ビルド手順
    pip install -r requirements.txt
    pip install pyinstaller
 
+※ ndlocr-lite（OCR機能）の依存パッケージ（onnxruntime、opencv等）も
+   自動的にインストールされます。インストール完了まで数分かかる場合があります。
+
+================================================================================
+【OCR機能（ndlocr-lite）について】
+================================================================================
+
+ndlocr-lite を含むビルドでは以下の点に注意してください:
+
+- OCR モデルファイル（合計約 150MB）がバンドルされるため、
+  最終 .app は 300MB 以上になります
+- プロジェクトフォルダのパスに日本語（全角文字）が含まれていると
+  ndlocr-lite が動作しません
+  NG例: /Users/田中/Projects/PDF-Font-Changer/
+  OK例: /Users/tanaka/Projects/PDF-Font-Changer/
+- OCR機能が不要な場合は requirements.txt から ndlocr-lite 行を削除して
+  ビルドするとファイルサイズを大幅に削減できます
+
 ================================================================================
 【5】アイコンの生成（必要に応じて）
 ================================================================================
@@ -74,17 +92,17 @@ icon.icns が存在しない場合、以下で生成：
 【6】ビルドの実行
 ================================================================================
 
-1. build/macos フォルダに移動：
+1. Release フォルダに移動：
 
-   cd build/macos
+   cd Release
 
 2. PyInstaller でビルド実行：
 
-   pyinstaller build_macos.spec
+   pyinstaller mac_build.spec
 
 3. ビルドが完了すると、以下にアプリが生成されます：
 
-   build/macos/dist/PDF-Font-Changer.app
+   Release/dist/PDF Font Changer.app
 
 ================================================================================
 【7】動作確認
@@ -194,7 +212,7 @@ App Store 外での配布をスムーズにするため、Apple Developer アカ
 
 1. 開発者証明書を取得（Apple Developer Program 登録が必要）
 
-2. build_macos.spec の codesign_identity を設定：
+2. mac_build.spec の codesign_identity を設定：
 
    codesign_identity='Developer ID Application: Your Name (TEAM_ID)'
 
@@ -211,13 +229,13 @@ App Store 外での配布をスムーズにするため、Apple Developer アカ
 【カスタマイズ】
 ================================================================================
 
-build_macos.spec を編集することで、以下のカスタマイズが可能：
+mac_build.spec を編集することで、以下のカスタマイズが可能：
 
 - アプリ名の変更（name='...' の部分）
 - アイコンの変更（icon=... の部分）
 - バンドルID の変更（bundle_identifier='...'）
 - バージョン情報の変更（info_plist 内）
 
-編集後は再度 pyinstaller build_macos.spec を実行してください。
+編集後は再度 pyinstaller mac_build.spec を実行してください。
 
 ================================================================================

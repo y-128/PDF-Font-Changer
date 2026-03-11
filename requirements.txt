@@ -1,2 +1,4 @@
-PyMuPDF==1.24.11
-Pillow>=12.0.0
+PyMuPDF>=1.24.11
+# Pillow は ndlocr-lite の依存パッケージとして自動インストールされます。
+# 直接指定すると ndlocr-lite が要求するバージョンと競合する可能性があるため除外しています。
+git+https://github.com/ndl-lab/ndlocr-lite@1.1.2#egg=ndlocr-lite

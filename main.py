@@ -21,7 +21,7 @@ from font_scanner import get_all_fonts, BASE_14_FONTS
 import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
-__version__ = "1.1.1"
+__version__ = "1.2.0"
 
 
 def get_build_version():
@@ -74,6 +74,7 @@ class PDFFontChangerApp:
         self.system_font_paths = {}
         self.progress_queue = queue.Queue()
         self.is_processing = False
+        self._last_valid_font = "Helvetica"  # コンボボックス仕切線選択時の復元用
 
         # OCR関連
         self.use_ocr_var = tk.BooleanVar(value=False)
@@ -703,6 +704,7 @@ class PDFFontChangerApp:
             state="readonly", height=10
         )
         self.font_combo.pack(fill=tk.X, pady=(0, 10))
+        self.font_combo.bind("<<ComboboxSelected>>", self._on_font_combo_select)
 
         # フォントフィルタ
         filter_frame = ttk.Frame(new_frame)
@@ -823,9 +825,78 @@ class PDFFontChangerApp:
         threading.Thread(target=_load, daemon=True).start()
 
     def _on_fonts_loaded(self, names, paths):
-        self.all_font_names = names
+        # 優先フォントのペアリスト（日本語表記, 英語表記）※英語名のアルファベット順
+        # 片方のみの場合は ("", "英語名") または ("日本語名", "") で指定
+        recommended_font_pairs = [
+            # --- 日本語フォント（英語名アルファベット順）---
+            ("ヒラギノ角ゴ", "Hiragino Kaku Gothic"),
+            ("ヒラギノ明朝", "Hiragino Mincho"),
+            ("メイリオ", "Meiryo"),
+            ("MS ゴシック", "MS Gothic"),
+            ("MS 明朝", "MS Mincho"),
+            ("MS Pゴシック", "MS PGothic"),
+            ("MS P明朝", "MS PMincho"),
+            ("Noto Sans CJK JP", "Noto Sans JP"),
+            ("Noto Serif CJK JP", "Noto Serif JP"),
+            ("游ゴシック", "Yu Gothic"),
+            ("游明朝", "Yu Mincho"),
+        ]
+
+        # 優先フォント（英語フォント・アルファベット順）
+        recommended_en_fonts = [
+            "Arial",
+            "Courier",
+            "Courier New",
+            "Garamond",
+            "Georgia",
+            "Helvetica",
+            "Open Sans",
+            "Roboto",
+            "Symbol",
+            "Times",
+            "Times New Roman",
+            "Verdana",
+            "ZapfDingbats",
+        ]
+
+        # 優先チェック用のフラットリスト（前方一致で判定）
+        recommended_prefixes = []
+        for ja, en in recommended_font_pairs:
+            if ja:
+                recommended_prefixes.append(ja)
+            if en:
+                recommended_prefixes.append(en)
+        recommended_prefixes += recommended_en_fonts
+
+        SEPARATOR = "─" * 24
+
+        def sort_key(font_name):
+            """フォント名をソートするためのキーを返す"""
+            for i, prefix in enumerate(recommended_prefixes):
+                if font_name.lower().startswith(prefix.lower()):
+                    return (0, i, font_name)  # 推奨フォントは優先度0, リスト順
+            return (1, 0, font_name)  # それ以外は優先度1, アルファベット順
+
+        sorted_names = sorted(
+            (n for n in names if not n.startswith(".")),
+            key=sort_key,
+        )
+
+        # 優先フォントとシステムフォントの境界を探して仕切線を挿入
+        separator_idx = len(sorted_names)  # デフォルト: 末尾
+        for i, name in enumerate(sorted_names):
+            matched = any(
+                name.lower().startswith(p.lower()) for p in recommended_prefixes
+            )
+            if not matched:
+                separator_idx = i
+                break
+
+        display_names = sorted_names[:separator_idx] + [SEPARATOR] + sorted_names[separator_idx:]
+
+        self.all_font_names = display_names
         self.system_font_paths = paths
-        self.font_combo["values"] = names
+        self.font_combo["values"] = display_names
         self.status_label.config(
             text=f"準備完了 — {len(names)} フォント検出"
         )
@@ -1049,10 +1120,20 @@ class PDFFontChangerApp:
             self.font_combo["values"] = self.all_font_names
             return
 
-        filtered = [n for n in self.all_font_names if query in n.lower()]
+        filtered = [
+            n for n in self.all_font_names
+            if query in n.lower() and not n.startswith("─")
+        ]
         self.font_combo["values"] = filtered
         if filtered:
             self.font_combo.set(filtered[0])
+
+    def _on_font_combo_select(self, event):
+        """仕切線が選択された場合は直前の値に戻す"""
+        if self.new_font_var.get().startswith("─"):
+            self.font_combo.set(self._last_valid_font)
+        else:
+            self._last_valid_font = self.new_font_var.get()
 
     def _on_font_select(self, event):
         """フォント選択時の処理"""
@@ -1321,6 +1402,11 @@ PyMuPDF 1.24.11
   Copyright (C) 2015-2024 Artifex Software, Inc.
   Licensed under AGPL-3.0
   https://github.com/pymupdf/PyMuPDF
+
+fonttools ≥4.53.1
+  Copyright (c) FontTools contributors
+  Licensed under MIT
+  https://github.com/fonttools/fonttools
 
 Pillow ≥12.0.0
   Copyright (c) 1997-2024 Secret Labs AB

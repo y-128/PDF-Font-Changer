@@ -2,7 +2,7 @@
 
 PDFファイルのフォントおよびフォントサイズを一括変更するデスクトップアプリケーションです。**Windows / Linux / macOS** で完全オフライン動作します。
 スキャンPDF（画像のみのPDF）は [NDLOCR-Lite](https://github.com/ndl-lab/ndlocr-lite) によるOCRで文字認識してからフォント変更できます。
-Windows(x64, Windows 11)、Mac(Apple M1, macOS Tahoe)環境で動作確認を行いました。
+Windows(x64, Windows 11)、Mac(arm, macOS Tahoe)環境で動作確認を行いました。
 
 ## 主な機能
 
@@ -234,6 +234,7 @@ PDF-Font-Changer/
 | パッケージ | バージョン | 説明 |
 |-----------|-----------|------|
 | **PyMuPDF** | 1.24.11 | PDF の読込・編集・レンダリング |
+| **fonttools** | ≥4.53.1 | フォントメタデータ解析（TTF/TTC 読み取り） |
 | **Pillow** | ≥12.0.0 | 画像処理と GUI での画像表示 |
 | **ndlocr-lite** | ≥1.0.0 | スキャンPDF OCR（NDLOCR-Lite, 国立国会図書館）|
 
@@ -333,7 +334,7 @@ pip install -r requirements.txt
 ### 安全な利用のために
 
 - **信頼できるソースの PDF のみ**を処理してください。悪意ある細工をされた PDF は PDF パーサの脆弱性を突く可能性があります
-- 定期的に依存パッケージを更新してください: `pip install --upgrade PyMuPDF Pillow ndlocr-lite`
+- 定期的に依存パッケージを更新してください: `pip install --upgrade PyMuPDF fonttools ndlocr-lite`
 - アプリのインストールパスに日本語（全角文字）を含めないでください（ndlocr-lite の制約）
 
 ## ライセンス

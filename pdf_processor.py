@@ -7,7 +7,7 @@ PyMuPDFを使用してPDFのフォント情報を抽出し、
 
 import time
 import fitz  # PyMuPDF
-from font_scanner import BASE_14_FONTS
+from font_scanner import BASE_14_FONTS, normalize_font_key
 
 
 UNICODE_FALLBACK_FONT_KEYWORDS = [
@@ -340,10 +340,11 @@ def _pick_unicode_fallback_font(system_font_paths):
     if not system_font_paths:
         return None
 
-    lowered = [(name, path, name.lower()) for name, path in system_font_paths.items()]
+    # 正規化してキーワード一致を行う（全角MSなどに対応）
+    normalized = [(name, path, normalize_font_key(name)) for name, path in system_font_paths.items()]
     for keyword in UNICODE_FALLBACK_FONT_KEYWORDS:
-        for name, path, lowered_name in lowered:
-            if keyword in lowered_name:
+        for name, path, norm_name in normalized:
+            if keyword in norm_name:
                 return path
 
     # キーワード一致がなければ先頭を採用

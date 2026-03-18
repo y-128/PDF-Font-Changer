@@ -17,7 +17,7 @@ from PIL import Image, ImageTk
 import fitz
 
 from pdf_processor import scan_fonts, change_fonts
-from font_scanner import get_all_fonts, BASE_14_FONTS
+from font_scanner import get_all_fonts, BASE_14_FONTS, normalize_font_key
 import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
@@ -870,10 +870,14 @@ class PDFFontChangerApp:
 
         SEPARATOR = "─" * 24
 
+        # 全角/半角・大文字小文字差を吸収するために正規化した接頭辞リストを作る
+        norm_prefixes = [normalize_font_key(p) for p in recommended_prefixes if p]
+
         def sort_key(font_name):
             """フォント名をソートするためのキーを返す"""
-            for i, prefix in enumerate(recommended_prefixes):
-                if font_name.lower().startswith(prefix.lower()):
+            norm_name = normalize_font_key(font_name)
+            for i, norm_prefix in enumerate(norm_prefixes):
+                if norm_name.startswith(norm_prefix):
                     return (0, i, font_name)  # 推奨フォントは優先度0, リスト順
             return (1, 0, font_name)  # それ以外は優先度1, アルファベット順
 
@@ -885,9 +889,8 @@ class PDFFontChangerApp:
         # 優先フォントとシステムフォントの境界を探して仕切線を挿入
         separator_idx = len(sorted_names)  # デフォルト: 末尾
         for i, name in enumerate(sorted_names):
-            matched = any(
-                name.lower().startswith(p.lower()) for p in recommended_prefixes
-            )
+            norm_name = normalize_font_key(name)
+            matched = any(norm_name.startswith(p) for p in norm_prefixes)
             if not matched:
                 separator_idx = i
                 break

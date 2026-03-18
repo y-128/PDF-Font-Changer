@@ -9,6 +9,8 @@ import os
 import sys
 import glob
 from fontTools.ttLib import TTFont, TTCollection
+import unicodedata
+import re
 
 
 # PDF標準フォント（常に利用可能）
@@ -28,6 +30,24 @@ BASE_14_FONTS = [
     "Symbol",
     "ZapfDingbats",
 ]
+
+
+def normalize_font_key(name: str) -> str:
+    """フォント名を比較用に正規化する。
+
+    - 全角英数字を半角に（NFKC）
+    - 大文字小文字を区別しない（casefold）
+    - 空白や一部句読点を削除して前方一致比較に適する形にする
+    """
+    if not isinstance(name, str):
+        return ""
+    # 幅や表記の正規化（全角→半角など）
+    s = unicodedata.normalize("NFKC", name)
+    # 大文字小文字の差を吸収
+    s = s.casefold()
+    # 空白・ハイフン・スラッシュ等を削除（前方一致の比較用）
+    s = re.sub(r"[\s\-_./,]+", "", s)
+    return s
 
 
 def _get_font_directories():

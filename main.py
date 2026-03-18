@@ -21,7 +21,7 @@ from font_scanner import get_all_fonts, BASE_14_FONTS, normalize_font_key
 import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 
 
 def get_build_version():

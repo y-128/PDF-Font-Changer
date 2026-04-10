@@ -28,11 +28,27 @@ from font_scanner import get_all_fonts, BASE_14_FONTS, normalize_font_key
 import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
+# CI ビルド時はこの値がタグ番号に自動書き換えされる
 __version__ = "1.2.1"
 
 
 def get_build_version():
-    """ビルドバージョンを取得"""
+    """ビルドバージョンを取得。
+    ソースから実行時は git タグを優先して返す。
+    ビルド済み実行ファイルや git が使えない場合は __version__ を返す。
+    """
+    if not getattr(sys, "frozen", False):
+        try:
+            import subprocess
+            tag = subprocess.check_output(
+                ["git", "describe", "--tags", "--exact-match"],
+                stderr=subprocess.DEVNULL,
+                cwd=os.path.dirname(os.path.abspath(__file__)),
+            ).decode().strip()
+            if tag:
+                return tag
+        except Exception:
+            pass
     return __version__
 
 

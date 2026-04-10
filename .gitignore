@@ -42,3 +42,5 @@ Release/*/build/
 .coverage
 
 vertical_spacing_adjustment.md
+.claude
+readme_sug.md

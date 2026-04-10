@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:  # 手動実行も可能
 
 permissions:
@@ -20,6 +20,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Update version in main.py
+        run: |
+          (Get-Content main.py) -replace '^__version__ = ".*"', "__version__ = `"${{ github.ref_name }}`"" | Set-Content main.py
 
       - name: Install dependencies
         run: |
@@ -54,6 +58,10 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Update version in main.py
+        run: |
+          sed -i "s/^__version__ = \".*\"/__version__ = \"${{ github.ref_name }}\"/" main.py
 
       - name: Install dependencies
         run: |
@@ -91,6 +99,10 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Update version in main.py
+        run: |
+          sed -i '' "s/^__version__ = \".*\"/__version__ = \"${{ github.ref_name }}\"/" main.py
+
       - name: Install dependencies
         run: |
           brew install python-tk@3.12
@@ -125,7 +137,7 @@ jobs:
       - name: Create source code archive
         run: |
           mkdir -p source_files
-          cp main.py pdf_processor.py ocr_processor.py font_scanner.py requirements.txt LICENSE README.md source_files/
+          cp main.py pdf_processor.py ocr_processor.py font_scanner.py requirements.txt LICENSE THIRD_PARTY_LICENSES.md README.md source_files/
           cp -r assets source_files/
           cp Release/*.spec Release/*_Readme.txt Release/README.txt source_files/
           zip -r PDF-Font-Changer-v${{ github.ref_name }}-Source.zip source_files
@@ -136,4 +148,3 @@ jobs:
           files: PDF-Font-Changer-v${{ github.ref_name }}-Source.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

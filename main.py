@@ -6,6 +6,7 @@ Windows / Linux / macOS で完全オフラインで動作する。
 
 import os
 import io
+import re
 import sys
 import threading
 import queue
@@ -15,6 +16,12 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 import fitz
+
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    HAS_DND = True
+except ImportError:
+    HAS_DND = False
 
 from pdf_processor import scan_fonts, change_fonts
 from font_scanner import get_all_fonts, BASE_14_FONTS, normalize_font_key
@@ -187,6 +194,11 @@ class PDFFontChangerApp:
             style="Status.TLabel"
         )
         self.path_label.pack(side=tk.LEFT, padx=(12, 0), fill=tk.X, expand=True)
+
+        # ── ドラッグ&ドロップ登録 ──
+        if HAS_DND:
+            self.root.drop_target_register(DND_FILES)
+            self.root.dnd_bind("<<Drop>>", self._on_dnd_drop)
 
         # ── コンテンツ領域（左右分割）──
         content = ttk.PanedWindow(main, orient=tk.HORIZONTAL)
@@ -907,26 +919,57 @@ class PDFFontChangerApp:
     # ─────────────────────────────────
     #  PDF読み込み
     # ─────────────────────────────────
-    def _open_pdf(self):
+    def _normalize_pdf_path(self, path):
+        """パスを正規化する（Windowsネットワークドライブ対応）。
+
+        tkinterdnd2 や filedialog は UNC パスを //server/share/... 形式で
+        返すことがある。os.path.normpath() を適用すると Windows では
+        \\\\server\\share\\... に変換され、fitz.open() が正しく処理できる。
+        """
+        path = path.strip()
+        if sys.platform == "win32":
+            path = os.path.normpath(path)
+        return path
+
+    def _parse_dnd_paths(self, data):
+        """DnD イベントデータからファイルパスのリストを取得する。
+
+        tkinterdnd2 はパスを以下の形式で返す:
+          - スペースなし: C:/path/to/file.pdf
+          - スペースあり: {C:/path with spaces/file.pdf}
+          - 複数ファイル: {path1} {path2} / path1 path2
+        """
+        paths = re.findall(r'\{([^}]+)\}', data)
+        if not paths:
+            paths = data.split()
+        return paths
+
+    def _on_dnd_drop(self, event):
+        """ドラッグ&ドロップでファイルが投下されたときの処理"""
         if self.is_processing:
             messagebox.showwarning("処理中", "PDF処理が完了するまでお待ちください。")
             return
-
-        path = filedialog.askopenfilename(
-            title="PDFファイルを選択",
-            filetypes=[("PDF ファイル", "*.pdf"), ("すべてのファイル", "*.*")]
-        )
-        if not path:
+        paths = self._parse_dnd_paths(event.data)
+        if not paths:
             return
+        path = self._normalize_pdf_path(paths[0])
+        if not path.lower().endswith(".pdf"):
+            messagebox.showwarning("形式エラー", "PDFファイルをドロップしてください。")
+            return
+        self._load_pdf_from_path(path)
 
+    def _load_pdf_from_path(self, path):
+        """指定したパスのPDFを読み込む（_open_pdf / DnD 共通処理）"""
         self.pdf_path = path
         self.path_label.config(text=os.path.basename(path))
 
-        # PDFドキュメントを開く
         try:
             if self.pdf_doc:
                 self.pdf_doc.close()
-            self.pdf_doc = fitz.open(path)
+            # ネットワークドライブ対応: ファイルをバイトとして読み込む
+            with open(path, "rb") as f:
+                data = f.read()
+            self.pdf_doc = fitz.open(stream=data, filetype="pdf")
             self.current_page = 0
             self.region_bboxes.clear()
             self._refresh_region_tree()
@@ -937,7 +980,6 @@ class PDFFontChangerApp:
             messagebox.showerror("エラー", f"PDFが開けません:\n{e}")
             return
 
-        # バックグラウンドでフォントスキャン開始
         use_ocr = self.use_ocr_var.get()
         pdf_path_local = path
 
@@ -955,6 +997,20 @@ class PDFFontChangerApp:
                 self.root.after(0, lambda msg=error_msg: self._on_scan_error(msg))
 
         threading.Thread(target=_scan, daemon=True).start()
+
+    def _open_pdf(self):
+        if self.is_processing:
+            messagebox.showwarning("処理中", "PDF処理が完了するまでお待ちください。")
+            return
+
+        path = filedialog.askopenfilename(
+            title="PDFファイルを選択",
+            filetypes=[("PDF ファイル", "*.pdf"), ("すべてのファイル", "*.*")]
+        )
+        if not path:
+            return
+
+        self._load_pdf_from_path(self._normalize_pdf_path(path))
 
     def _on_fonts_scanned(self, fonts, use_ocr, pdf_path):
         """フォントスキャン完了後の処理（メインスレッドで実行）"""
@@ -1474,13 +1530,38 @@ https://github.com/y-128/PDF-Font-Changer"""
 
 
 def main():
-    root = tk.Tk()
+    if HAS_DND:
+        root = TkinterDnD.Tk()
+    else:
+        root = tk.Tk()
 
     # DPIスケーリング対応
     try:
         if sys.platform == "win32":
             import ctypes
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        pass
+
+    # アプリケーションウィンドウのアイコンを設定
+    try:
+        if getattr(sys, "frozen", False):
+            base_path = sys._MEIPASS
+        else:
+            base_path = os.path.dirname(os.path.abspath(__file__))
+
+        icon_path = os.path.join(base_path, "assets", "icon.ico")
+        if os.path.exists(icon_path):
+            try:
+                if sys.platform == "win32":
+                    root.iconbitmap(icon_path)
+                else:
+                    img = ImageTk.PhotoImage(Image.open(icon_path))
+                    root.iconphoto(False, img)
+                    # ガベージコレクション対策で参照を保持
+                    root._icon_photo = img
+            except Exception:
+                pass
     except Exception:
         pass
 

@@ -62,15 +62,21 @@ try:
 except Exception:
     cv2_datas, cv2_binaries, cv2_hiddenimports = [], [], []
 
+# ─── tkinterdnd2（ドラッグ&ドロップ）の収集 ───
+try:
+    dnd_datas, dnd_binaries, dnd_hiddenimports = collect_all("tkinterdnd2")
+except Exception:
+    dnd_datas, dnd_binaries, dnd_hiddenimports = [], [], []
+
 # ─── Analysis ───
 a = Analysis(
     source_files,
     pathex=[project_root],
-    binaries=[] + ort_binaries + cv2_binaries,
+    binaries=[] + ort_binaries + cv2_binaries + dnd_binaries,
     datas=[
         (assets_folder, "assets"),
         (os.path.join(project_root, "LICENSE"), "."),
-    ] + ndlocr_datas + ort_datas + cv2_datas,
+    ] + ndlocr_datas + ort_datas + cv2_datas + dnd_datas,
     hiddenimports=[
         "PIL._tkinter_finder",
         "tkinter",
@@ -78,7 +84,8 @@ a = Analysis(
         "tkinter.messagebox",
         "tkinter.ttk",
         "numpy",
-    ] + ndlocr_hiddenimports + ort_hiddenimports + cv2_hiddenimports,
+        "tkinterdnd2",
+    ] + ndlocr_hiddenimports + ort_hiddenimports + cv2_hiddenimports + dnd_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

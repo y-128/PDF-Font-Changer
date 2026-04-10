@@ -1,5 +1,6 @@
 PyMuPDF>=1.24.11
 fonttools>=4.53.1
+tkinterdnd2>=0.3.0
 # Pillow は ndlocr-lite の依存パッケージとして自動インストールされます。
 # 直接指定すると ndlocr-lite が要求するバージョンと競合する可能性があるため除外しています。
 git+https://github.com/ndl-lab/ndlocr-lite@1.1.2#egg=ndlocr-lite

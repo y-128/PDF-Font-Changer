@@ -25,7 +25,6 @@ except ImportError:
 
 from pdf_processor import scan_fonts, change_fonts
 from font_scanner import get_all_fonts, BASE_14_FONTS, normalize_font_key
-import ocr_processor
 
 # バージョン情報（セマンティック バージョニング）
 # CI ビルド時はこの値がタグ番号に自動書き換えされる
@@ -1070,6 +1069,7 @@ class PDFFontChangerApp:
                             mat = fitz.Matrix(ocr_zoom, ocr_zoom)
                             pix = page.get_pixmap(matrix=mat)
                             pil_img = Image.open(io.BytesIO(pix.tobytes("ppm")))
+                            import ocr_processor
                             lines = ocr_processor.run_ocr(pil_img)
                             pdf_lines = []
                             for ln in lines:

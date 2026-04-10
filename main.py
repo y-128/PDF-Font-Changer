@@ -1547,7 +1547,10 @@ https://github.com/y-128/PDF-Font-Changer"""
 
 def main():
     if HAS_DND:
-        root = TkinterDnD.Tk()
+        try:
+            root = TkinterDnD.Tk()
+        except RuntimeError:
+            root = tk.Tk()
     else:
         root = tk.Tk()
 
